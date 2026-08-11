@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top Drugs — Brand ↔ Generic</title>
+<style>
+  :root{
+    --ink:#16233A; --ink-soft:#4A5A73; --paper:#FFFFFF; --bg:#EAECF5;
+    --line:#D4D8E8; --brand:#4C5FD5; --brand-bg:#E9ECFB; --brand-line:#B9C2F0;
+    --teal:#0C7A83; --teal-bg:#E1F2F2; --teal-line:#9AD0D3;
+    --hot:#E23A3F; --hot-bg:#FCE9E9;
+    --good:#12965A; --good-bg:#E2F5EC; --good-line:#A6DEC3;
+    --shadow:0 18px 40px -18px rgba(22,35,58,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(120% 80% at 50% -10%, #F3F4FB 0%, var(--bg) 60%) fixed;
+    color:var(--ink); min-height:100vh; padding:26px 16px 60px;
+  }
+  .wrap{max-width:820px;margin:0 auto}
+
+  header{text-align:center;margin-bottom:16px}
+  .eyebrow{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}
+  h1{margin:.28em 0 .12em;font-size:clamp(26px,5vw,38px);letter-spacing:-.02em;line-height:1.05}
+  .sub{color:var(--ink-soft);font-size:15px;max-width:56ch;margin:0 auto;line-height:1.5}
+
+  .tabs{display:flex;justify-content:center;gap:4px;background:var(--paper);border:1px solid var(--line);
+    border-radius:12px;padding:4px;width:max-content;margin:18px auto 0;box-shadow:0 1px 0 rgba(22,35,58,.03)}
+  .tabs button{border:0;background:transparent;font:inherit;font-size:14px;font-weight:700;color:var(--ink-soft);
+    padding:8px 18px;border-radius:9px;cursor:pointer;transition:.15s}
+  .tabs button[aria-selected="true"]{background:var(--brand);color:#fff}
+
+  .controls{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:16px 0}
+  .field{display:flex;align-items:center;gap:8px;background:var(--paper);border:1px solid var(--line);
+    border-radius:11px;padding:6px 10px 6px 14px}
+  .field label{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em}
+  select{border:0;background:transparent;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;padding:4px}
+  select:focus{outline:none}
+  .btn{border:1px solid var(--line);background:var(--paper);font:inherit;font-size:13px;font-weight:600;
+    color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;transition:.15s;box-shadow:0 1px 0 rgba(22,35,58,.03)}
+  .btn:hover{border-color:#9aa4c8;transform:translateY(-1px)}
+  .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .counter{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink-soft);font-size:14px;min-width:64px;text-align:center}
+
+  .panel{display:none} .panel.on{display:block}
+
+  /* ---------- FLASHCARDS ---------- */
+  .stage{perspective:1600px;margin:6px auto 0;max-width:600px}
+  .card{position:relative;width:100%;min-height:340px;cursor:pointer;
+    transform-style:preserve-3d;transition:transform .5s cubic-bezier(.6,.02,.2,1)}
+  .card.flipped{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:var(--paper);border:1px solid var(--line);border-top:5px solid var(--brand);border-radius:20px;
+    box-shadow:var(--shadow);padding:24px 26px;display:flex;flex-direction:column}
+  .face.back{transform:rotateY(180deg)}
+  .cardtop{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .role{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+  .cls{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--brand);
+    background:var(--brand-bg);border:1px solid var(--brand-line);border-radius:999px;padding:4px 11px}
+  .cardbody{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;gap:6px}
+  .drug{font-size:clamp(26px,6.5vw,42px);font-weight:750;letter-spacing:-.01em;line-height:1.1;word-break:break-word}
+  .pron{font-size:14.5px;color:var(--ink-soft);font-style:italic;margin-top:2px}
+  .pron .st{font-style:normal;font-weight:800;color:var(--ink)}
+  .use{font-size:15px;color:var(--ink-soft);line-height:1.45;max-width:42ch;margin:8px auto 0}
+  .spk{display:inline-flex;align-items:center;gap:6px;margin:12px auto 0;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;
+    padding:5px 13px;border-radius:999px;cursor:pointer;transition:.15s}
+  .spk:hover{border-color:var(--teal-line);color:var(--teal);background:var(--teal-bg)}
+  .spk.speaking{border-color:var(--teal);color:var(--teal);background:var(--teal-bg)}
+  .cardfoot{text-align:center;margin-top:auto}
+  .tap{font-size:12.5px;color:var(--brand);font-weight:700;margin-top:12px}
+
+  .markrow{display:flex;gap:10px;justify-content:center;margin-top:16px}
+  .mark{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:8px 16px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+  .mark.know{color:var(--teal)} .mark.know:hover{background:var(--teal-bg);border-color:var(--teal-line)}
+  .mark.review{color:var(--hot)} .mark.review:hover{background:var(--hot-bg);border-color:#F0AEB0}
+  .mark.active-know{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .mark.active-review{background:var(--hot);color:#fff;border-color:var(--hot)}
+  .hint{text-align:center;color:var(--ink-soft);font-size:12.5px;margin-top:16px;line-height:1.5}
+  .hint kbd{background:var(--paper);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:11px}
+
+  /* ---------- MATCH GAME ---------- */
+  .scorebar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:4px 0 14px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 16px;text-align:center;min-width:92px}
+  .stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:700}
+  .board{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:620px;margin:0 auto}
+  .col h3{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);text-align:center;margin:0 0 10px;font-weight:800}
+  .col h3.g{color:var(--brand)} .col h3.b{color:var(--teal)}
+  .opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--paper);
+    border-radius:12px;padding:13px 15px;margin-bottom:10px;font:inherit;font-size:15px;font-weight:600;
+    color:var(--ink);cursor:pointer;transition:.13s;box-shadow:0 1px 0 rgba(22,35,58,.03)}
+  .opt:hover:not(:disabled){border-color:#9aa4c8}
+  .opt small{display:block;font-weight:500;font-size:11.5px;color:var(--ink-soft);margin-top:2px;font-style:italic}
+  .opt.sel{border-color:var(--brand);background:var(--brand-bg);box-shadow:0 0 0 2px var(--brand-line)}
+  .opt.matched{border-color:var(--good-line);background:var(--good-bg);color:var(--good);cursor:default}
+  .opt.matched small{color:var(--good)}
+  .opt.wrong{animation:shake .4s;border-color:var(--hot);background:var(--hot-bg)}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+  .msg{text-align:center;font-weight:700;font-size:14px;margin:14px 0 0;min-height:20px}
+  .msg.good{color:var(--good)} .msg.done{color:var(--brand)}
+
+  /* ---------- PRINT ---------- */
+  .sheet{display:none}
+  @media print{
+    body{background:#fff;padding:0}
+    header .sub,.tabs,.controls,.stage,.markrow,.hint,.scorebar,.board,.msg{display:none!important}
+    h1{font-size:24px}
+    .sheet{display:block;margin-top:12px}
+    .sheet h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#3a3f8a;border-bottom:1px solid #bbb;padding-bottom:3px;margin:14px 0 6px}
+    .prow{display:grid;grid-template-columns:1.1fr 1fr 1.3fr;gap:8px;padding:5px 0;border-bottom:1px solid #eee;font-size:11.5px}
+    .prow .g{font-weight:700} .prow .gg{font-style:italic;color:#666;font-weight:400}
+    .prow .b{color:#333} .prow .u{color:#555}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">PTCB · Medications (40% of the exam)</div>
+    <h1>Top Drugs — Brand ↔ Generic</h1>
+    <p class="sub">The biggest exam domain, learned the way it's taught: grouped by drug class. Flip cards for brand, generic, class, and use — then switch to the match game to drill it under a little pressure.</p>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="flash">Flashcards</button>
+      <button role="tab" aria-selected="false" data-tab="match">Match game</button>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="field"><label for="clsSel">Class</label><select id="clsSel"></select></div>
+    <span class="counter" id="poolCount"></span>
+  </div>
+
+  <!-- FLASHCARDS -->
+  <section class="panel on" id="flashPanel">
+    <div class="controls" style="margin-top:0">
+      <button class="btn" id="prev">‹ Prev</button>
+      <span class="counter" id="counter">1 / 1</span>
+      <button class="btn" id="next">Next ›</button>
+      <button class="btn" id="dir">Show: Generic ▸ Brand</button>
+      <button class="btn" id="shuffle">↺ Shuffle</button>
+      <button class="btn" id="print">⎙ Print</button>
+    </div>
+    <div class="stage">
+      <div class="card" id="card">
+        <div class="face front">
+          <div class="cardtop"><span class="role" id="roleF"></span><span class="cls" id="clsF"></span></div>
+          <div class="cardbody">
+            <div class="drug" id="drugF"></div>
+            <div class="pron" id="pronF"></div>
+            <button class="spk" id="spkF" type="button">🔊 Hear it</button>
+          </div>
+          <div class="cardfoot"><div class="tap">Tap to flip →</div></div>
+        </div>
+        <div class="face back">
+          <div class="cardtop"><span class="role" id="roleB"></span><span class="cls" id="clsB"></span></div>
+          <div class="cardbody">
+            <div class="drug" id="drugB"></div>
+            <div class="pron" id="pronB"></div>
+            <div class="use" id="useB"></div>
+            <button class="spk" id="spkB" type="button">🔊 Hear it</button>
+          </div>
+          <div class="cardfoot"><div class="tap" id="tapB">Tap to flip back</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="markrow">
+      <button class="mark know" id="mKnow">✓ I know this</button>
+      <button class="mark review" id="mReview">↻ Needs review</button>
+    </div>
+    <div class="hint"><kbd>←</kbd> <kbd>→</kbd> move · <kbd>Space</kbd> flip · <kbd>S</kbd> shuffle · <span id="progress"></span></div>
+  </section>
+
+  <!-- MATCH GAME -->
+  <section class="panel" id="matchPanel">
+    <div class="controls" style="margin-top:0">
+      <div class="field"><label for="sizeSel">Pairs</label><select id="sizeSel">
+        <option value="5">5</option><option value="6" selected>6</option><option value="8">8</option></select></div>
+      <button class="btn primary" id="newRound">↻ New round</button>
+    </div>
+    <div class="scorebar">
+      <div class="stat"><b id="mMatched">0</b><span>Matched</span></div>
+      <div class="stat"><b id="mStreak">0</b><span>Streak</span></div>
+      <div class="stat"><b id="mBest">0</b><span>Best streak</span></div>
+    </div>
+    <div class="board">
+      <div class="col"><h3 class="g">Generic</h3><div id="colG"></div></div>
+      <div class="col"><h3 class="b">Brand</h3><div id="colB"></div></div>
+    </div>
+    <p class="msg" id="matchMsg">Tap a generic, then its matching brand.</p>
+  </section>
+
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+/* g generic · b brand · cls class · use what it treats · pr pronunciation of generic (|CHUNK| = stressed) */
+const DATA = [
+ {g:"lisinopril",b:"Prinivil, Zestril",cls:"ACE inhibitor",use:"High blood pressure, heart failure",pr:"lyse-|IN|-oh-pril"},
+ {g:"enalapril",b:"Vasotec",cls:"ACE inhibitor",use:"High blood pressure",pr:"e-|NAL|-a-pril"},
+ {g:"ramipril",b:"Altace",cls:"ACE inhibitor",use:"High blood pressure, heart protection",pr:"|RA|-mi-pril"},
+ {g:"benazepril",b:"Lotensin",cls:"ACE inhibitor",use:"High blood pressure",pr:"ben-|AY|-ze-pril"},
+ {g:"losartan",b:"Cozaar",cls:"ARB",use:"High blood pressure",pr:"loe-|SAR|-tan"},
+ {g:"valsartan",b:"Diovan",cls:"ARB",use:"High blood pressure, heart failure",pr:"val-|SAR|-tan"},
+ {g:"olmesartan",b:"Benicar",cls:"ARB",use:"High blood pressure",pr:"ol-me-|SAR|-tan"},
+ {g:"telmisartan",b:"Micardis",cls:"ARB",use:"High blood pressure",pr:"tel-mi-|SAR|-tan"},
+ {g:"metoprolol",b:"Lopressor, Toprol XL",cls:"Beta blocker",use:"High blood pressure, heart",pr:"me-|TOE|-proe-lol"},
+ {g:"atenolol",b:"Tenormin",cls:"Beta blocker",use:"High blood pressure",pr:"a-|TEN|-oh-lol"},
+ {g:"carvedilol",b:"Coreg",cls:"Beta blocker",use:"Heart failure, high blood pressure",pr:"kar-|VE|-di-lol"},
+ {g:"propranolol",b:"Inderal",cls:"Beta blocker",use:"Blood pressure, tremor, migraine",pr:"proe-|PRAN|-oh-lol"},
+ {g:"bisoprolol",b:"Zebeta",cls:"Beta blocker",use:"High blood pressure",pr:"bis-|OH|-proe-lol"},
+ {g:"nebivolol",b:"Bystolic",cls:"Beta blocker",use:"High blood pressure",pr:"ne-|BIV|-oh-lol"},
+ {g:"amlodipine",b:"Norvasc",cls:"Calcium channel blocker",use:"High blood pressure",pr:"am-|LOE|-di-peen"},
+ {g:"diltiazem",b:"Cardizem",cls:"Calcium channel blocker",use:"Blood pressure, rate control",pr:"dil-|TYE|-a-zem"},
+ {g:"verapamil",b:"Calan",cls:"Calcium channel blocker",use:"Blood pressure, arrhythmia",pr:"ver-|AP|-a-mil"},
+ {g:"nifedipine",b:"Procardia",cls:"Calcium channel blocker",use:"High blood pressure",pr:"nye-|FED|-i-peen"},
+ {g:"hydrochlorothiazide",b:"Microzide (HCTZ)",cls:"Thiazide diuretic",use:"Blood pressure, fluid",pr:"hye-droe-klor-oh-|THYE|-a-zide"},
+ {g:"furosemide",b:"Lasix",cls:"Loop diuretic",use:"Fluid overload, edema",pr:"fyoor-|OH|-se-mide"},
+ {g:"spironolactone",b:"Aldactone",cls:"Potassium-sparing diuretic",use:"Fluid, heart failure",pr:"speer-on-oh-|LAK|-tone"},
+ {g:"chlorthalidone",b:"Thalitone",cls:"Thiazide-like diuretic",use:"High blood pressure",pr:"klor-|THAL|-i-done"},
+ {g:"atorvastatin",b:"Lipitor",cls:"Statin",use:"High cholesterol",pr:"a-|TOR|-va-sta-tin"},
+ {g:"simvastatin",b:"Zocor",cls:"Statin",use:"High cholesterol",pr:"|SIM|-va-sta-tin"},
+ {g:"rosuvastatin",b:"Crestor",cls:"Statin",use:"High cholesterol",pr:"roe-|SOO|-va-sta-tin"},
+ {g:"pravastatin",b:"Pravachol",cls:"Statin",use:"High cholesterol",pr:"|PRA|-va-sta-tin"},
+ {g:"ezetimibe",b:"Zetia",cls:"Cholesterol absorption inhibitor",use:"High cholesterol",pr:"e-|ZET|-i-mibe"},
+ {g:"fenofibrate",b:"Tricor",cls:"Fibrate",use:"High triglycerides",pr:"fen-oh-|FYE|-brate"},
+ {g:"warfarin",b:"Coumadin",cls:"Anticoagulant",use:"Prevents clots",pr:"|WAR|-fa-rin"},
+ {g:"apixaban",b:"Eliquis",cls:"Anticoagulant (DOAC)",use:"Prevents clots, stroke",pr:"a-|PIX|-a-ban"},
+ {g:"rivaroxaban",b:"Xarelto",cls:"Anticoagulant (DOAC)",use:"Prevents clots, stroke",pr:"riv-a-|ROX|-a-ban"},
+ {g:"clopidogrel",b:"Plavix",cls:"Antiplatelet",use:"Prevents clots",pr:"kloe-|PID|-oh-grel"},
+ {g:"omeprazole",b:"Prilosec",cls:"Proton pump inhibitor",use:"Acid reflux, GERD",pr:"oh-|MEP|-ra-zole"},
+ {g:"pantoprazole",b:"Protonix",cls:"Proton pump inhibitor",use:"Acid reflux, GERD",pr:"pan-|TOE|-pra-zole"},
+ {g:"esomeprazole",b:"Nexium",cls:"Proton pump inhibitor",use:"Acid reflux, GERD",pr:"es-oh-|MEP|-ra-zole"},
+ {g:"lansoprazole",b:"Prevacid",cls:"Proton pump inhibitor",use:"Acid reflux, GERD",pr:"lan-|SOE|-pra-zole"},
+ {g:"famotidine",b:"Pepcid",cls:"H2 blocker",use:"Heartburn, acid",pr:"fa-|MOE|-ti-deen"},
+ {g:"metformin",b:"Glucophage",cls:"Antidiabetic (biguanide)",use:"Type 2 diabetes",pr:"met-|FOR|-min"},
+ {g:"glipizide",b:"Glucotrol",cls:"Sulfonylurea",use:"Type 2 diabetes",pr:"|GLIP|-i-zide"},
+ {g:"glimepiride",b:"Amaryl",cls:"Sulfonylurea",use:"Type 2 diabetes",pr:"glye-|MEP|-i-ride"},
+ {g:"sitagliptin",b:"Januvia",cls:"DPP-4 inhibitor",use:"Type 2 diabetes",pr:"sit-a-|GLIP|-tin"},
+ {g:"empagliflozin",b:"Jardiance",cls:"SGLT2 inhibitor",use:"Type 2 diabetes",pr:"em-pa-gli-|FLOE|-zin"},
+ {g:"pioglitazone",b:"Actos",cls:"Thiazolidinedione",use:"Type 2 diabetes",pr:"pye-oh-|GLI|-ta-zone"},
+ {g:"semaglutide",b:"Ozempic, Wegovy",cls:"GLP-1 agonist",use:"Diabetes, weight loss",pr:"sem-a-|GLOO|-tide"},
+ {g:"insulin glargine",b:"Lantus",cls:"Long-acting insulin",use:"Diabetes",pr:"|GLAR|-jeen"},
+ {g:"levothyroxine",b:"Synthroid",cls:"Thyroid hormone",use:"Hypothyroidism (low thyroid)",pr:"lee-voe-thye-|ROX|-een"},
+ {g:"sertraline",b:"Zoloft",cls:"SSRI antidepressant",use:"Depression, anxiety",pr:"|SER|-tra-leen"},
+ {g:"fluoxetine",b:"Prozac",cls:"SSRI antidepressant",use:"Depression, anxiety",pr:"floo-|OX|-e-teen"},
+ {g:"escitalopram",b:"Lexapro",cls:"SSRI antidepressant",use:"Depression, anxiety",pr:"es-sye-|TAL|-oh-pram"},
+ {g:"citalopram",b:"Celexa",cls:"SSRI antidepressant",use:"Depression",pr:"sye-|TAL|-oh-pram"},
+ {g:"paroxetine",b:"Paxil",cls:"SSRI antidepressant",use:"Depression, anxiety",pr:"pa-|ROX|-e-teen"},
+ {g:"venlafaxine",b:"Effexor",cls:"SNRI antidepressant",use:"Depression, anxiety",pr:"ven-la-|FAX|-een"},
+ {g:"duloxetine",b:"Cymbalta",cls:"SNRI antidepressant",use:"Depression, nerve pain",pr:"doo-|LOX|-e-teen"},
+ {g:"bupropion",b:"Wellbutrin",cls:"Antidepressant",use:"Depression, quit smoking",pr:"byoo-|PROE|-pee-on"},
+ {g:"trazodone",b:"Desyrel",cls:"Antidepressant",use:"Depression, sleep",pr:"|TRAZ|-oh-done"},
+ {g:"amitriptyline",b:"Elavil",cls:"Tricyclic antidepressant",use:"Depression, nerve pain",pr:"a-mee-|TRIP|-ti-leen"},
+ {g:"alprazolam",b:"Xanax",cls:"Benzodiazepine",use:"Anxiety, panic",pr:"al-|PRAZ|-oh-lam"},
+ {g:"lorazepam",b:"Ativan",cls:"Benzodiazepine",use:"Anxiety",pr:"lor-|AZ|-e-pam"},
+ {g:"clonazepam",b:"Klonopin",cls:"Benzodiazepine",use:"Anxiety, seizures",pr:"kloe-|NAZ|-e-pam"},
+ {g:"diazepam",b:"Valium",cls:"Benzodiazepine",use:"Anxiety, muscle spasm",pr:"dye-|AZ|-e-pam"},
+ {g:"zolpidem",b:"Ambien",cls:"Sedative-hypnotic",use:"Insomnia",pr:"|ZOL|-pi-dem"},
+ {g:"quetiapine",b:"Seroquel",cls:"Atypical antipsychotic",use:"Bipolar, schizophrenia",pr:"kwe-|TYE|-a-peen"},
+ {g:"aripiprazole",b:"Abilify",cls:"Atypical antipsychotic",use:"Bipolar, schizophrenia",pr:"ay-ri-|PIP|-ra-zole"},
+ {g:"risperidone",b:"Risperdal",cls:"Atypical antipsychotic",use:"Schizophrenia, bipolar",pr:"ris-|PER|-i-done"},
+ {g:"gabapentin",b:"Neurontin",cls:"Anticonvulsant",use:"Nerve pain, seizures",pr:"|GA|-ba-pen-tin"},
+ {g:"pregabalin",b:"Lyrica",cls:"Anticonvulsant",use:"Nerve pain, fibromyalgia",pr:"pre-|GAB|-a-lin"},
+ {g:"lamotrigine",b:"Lamictal",cls:"Anticonvulsant",use:"Seizures, bipolar",pr:"la-|MOE|-tri-jeen"},
+ {g:"levetiracetam",b:"Keppra",cls:"Anticonvulsant",use:"Seizures",pr:"lee-va-tye-|RA|-se-tam"},
+ {g:"topiramate",b:"Topamax",cls:"Anticonvulsant",use:"Seizures, migraine",pr:"toe-|PYRE|-a-mate"},
+ {g:"methylphenidate",b:"Ritalin, Concerta",cls:"CNS stimulant",use:"ADHD",pr:"meth-il-|FEN|-i-date"},
+ {g:"amphetamine/dextroamphetamine",b:"Adderall",cls:"CNS stimulant",use:"ADHD",pr:"am-|FET|-a-meen"},
+ {g:"lisdexamfetamine",b:"Vyvanse",cls:"CNS stimulant",use:"ADHD",pr:"lis-dex-am-|FET|-a-meen"},
+ {g:"hydrocodone/acetaminophen",b:"Norco, Vicodin",cls:"Opioid combination",use:"Pain",pr:"hye-droe-|KOE|-done"},
+ {g:"oxycodone",b:"OxyContin",cls:"Opioid",use:"Pain",pr:"ox-i-|KOE|-done"},
+ {g:"tramadol",b:"Ultram",cls:"Opioid analgesic",use:"Pain",pr:"|TRAM|-a-dol"},
+ {g:"morphine",b:"MS Contin",cls:"Opioid",use:"Severe pain",pr:"|MOR|-feen"},
+ {g:"ibuprofen",b:"Advil, Motrin",cls:"NSAID",use:"Pain, inflammation, fever",pr:"eye-byoo-|PROE|-fen"},
+ {g:"naproxen",b:"Aleve, Naprosyn",cls:"NSAID",use:"Pain, inflammation",pr:"na-|PROX|-en"},
+ {g:"meloxicam",b:"Mobic",cls:"NSAID",use:"Arthritis pain",pr:"me-|LOX|-i-kam"},
+ {g:"celecoxib",b:"Celebrex",cls:"NSAID (COX-2)",use:"Arthritis pain",pr:"se-le-|KOX|-ib"},
+ {g:"acetaminophen",b:"Tylenol",cls:"Analgesic / antipyretic",use:"Pain, fever",pr:"a-seet-a-|MIN|-oh-fen"},
+ {g:"cyclobenzaprine",b:"Flexeril",cls:"Muscle relaxant",use:"Muscle spasm",pr:"sye-kloe-|BEN|-za-preen"},
+ {g:"tizanidine",b:"Zanaflex",cls:"Muscle relaxant",use:"Muscle spasm",pr:"tye-|ZAN|-i-deen"},
+ {g:"baclofen",b:"Lioresal",cls:"Muscle relaxant",use:"Muscle spasm",pr:"|BAK|-loe-fen"},
+ {g:"allopurinol",b:"Zyloprim",cls:"Xanthine oxidase inhibitor",use:"Gout prevention",pr:"al-oh-|PYOOR|-i-nol"},
+ {g:"amoxicillin",b:"Amoxil",cls:"Penicillin antibiotic",use:"Bacterial infection",pr:"a-mox-i-|SIL|-in"},
+ {g:"amoxicillin/clavulanate",b:"Augmentin",cls:"Penicillin antibiotic",use:"Bacterial infection",pr:"a-mox-i-|SIL|-in / klav-yoo-|LAN|-ate"},
+ {g:"cephalexin",b:"Keflex",cls:"Cephalosporin antibiotic",use:"Bacterial infection",pr:"sef-a-|LEX|-in"},
+ {g:"azithromycin",b:"Zithromax, Z-Pak",cls:"Macrolide antibiotic",use:"Bacterial infection",pr:"az-ith-roe-|MYE|-sin"},
+ {g:"ciprofloxacin",b:"Cipro",cls:"Fluoroquinolone antibiotic",use:"Bacterial infection",pr:"sip-roe-|FLOX|-a-sin"},
+ {g:"levofloxacin",b:"Levaquin",cls:"Fluoroquinolone antibiotic",use:"Bacterial infection",pr:"lee-voe-|FLOX|-a-sin"},
+ {g:"doxycycline",b:"Vibramycin",cls:"Tetracycline antibiotic",use:"Infection, acne",pr:"dox-i-|SYE|-kleen"},
+ {g:"sulfamethoxazole/trimethoprim",b:"Bactrim",cls:"Sulfonamide antibiotic",use:"Infection, UTI",pr:"sul-fa-meth-|OX|-a-zole"},
+ {g:"metronidazole",b:"Flagyl",cls:"Antibiotic / antiprotozoal",use:"Infection",pr:"me-troe-|NI|-da-zole"},
+ {g:"nitrofurantoin",b:"Macrobid",cls:"Urinary antibiotic",use:"Urinary tract infection",pr:"nye-troe-fyoor-|AN|-toin"},
+ {g:"clindamycin",b:"Cleocin",cls:"Lincosamide antibiotic",use:"Bacterial infection",pr:"klin-da-|MYE|-sin"},
+ {g:"fluconazole",b:"Diflucan",cls:"Antifungal",use:"Fungal / yeast infection",pr:"floo-|KOE|-na-zole"},
+ {g:"valacyclovir",b:"Valtrex",cls:"Antiviral",use:"Herpes, shingles",pr:"val-a-|SYE|-kloe-veer"},
+ {g:"acyclovir",b:"Zovirax",cls:"Antiviral",use:"Herpes, shingles",pr:"ay-|SYE|-kloe-veer"},
+ {g:"prednisone",b:"Deltasone",cls:"Corticosteroid",use:"Inflammation, immune",pr:"|PRED|-ni-sone"},
+ {g:"methylprednisolone",b:"Medrol",cls:"Corticosteroid",use:"Inflammation",pr:"meth-il-pred-|NIS|-oh-lone"},
+ {g:"albuterol",b:"ProAir, Ventolin",cls:"Bronchodilator (SABA)",use:"Asthma, COPD",pr:"al-|BYOO|-ter-ol"},
+ {g:"montelukast",b:"Singulair",cls:"Leukotriene modifier",use:"Asthma, allergies",pr:"mon-te-|LOO|-kast"},
+ {g:"fluticasone/salmeterol",b:"Advair",cls:"Inhaled steroid + LABA",use:"Asthma, COPD",pr:"floo-|TIK|-a-sone"},
+ {g:"tiotropium",b:"Spiriva",cls:"Bronchodilator (LAMA)",use:"COPD",pr:"tye-oh-|TROE|-pee-um"},
+ {g:"cetirizine",b:"Zyrtec",cls:"Antihistamine",use:"Allergies",pr:"se-|TEER|-i-zeen"},
+ {g:"loratadine",b:"Claritin",cls:"Antihistamine",use:"Allergies",pr:"lor-|AT|-a-deen"},
+ {g:"fexofenadine",b:"Allegra",cls:"Antihistamine",use:"Allergies",pr:"fex-oh-|FEN|-a-deen"},
+ {g:"diphenhydramine",b:"Benadryl",cls:"Antihistamine",use:"Allergies, sleep",pr:"dye-fen-|HYE|-dra-meen"},
+ {g:"hydroxyzine",b:"Vistaril, Atarax",cls:"Antihistamine",use:"Itching, anxiety",pr:"hye-|DROX|-i-zeen"},
+ {g:"ondansetron",b:"Zofran",cls:"Antiemetic",use:"Nausea, vomiting",pr:"on-|DAN|-se-tron"},
+ {g:"promethazine",b:"Phenergan",cls:"Antiemetic / antihistamine",use:"Nausea",pr:"proe-|METH|-a-zeen"},
+ {g:"tamsulosin",b:"Flomax",cls:"Alpha blocker",use:"Enlarged prostate (BPH)",pr:"tam-|SOO|-loe-sin"},
+ {g:"finasteride",b:"Proscar, Propecia",cls:"5-alpha reductase inhibitor",use:"BPH, hair loss",pr:"fi-|NAS|-te-ride"},
+ {g:"sildenafil",b:"Viagra",cls:"PDE5 inhibitor",use:"Erectile dysfunction",pr:"sil-|DEN|-a-fil"},
+ {g:"oxybutynin",b:"Ditropan",cls:"Anticholinergic",use:"Overactive bladder",pr:"ox-i-|BYOO|-ti-nin"},
+ {g:"digoxin",b:"Lanoxin",cls:"Cardiac glycoside",use:"Heart failure, AFib",pr:"di-|JOX|-in"},
+ {g:"clonidine",b:"Catapres",cls:"Alpha-2 agonist",use:"Blood pressure, ADHD",pr:"|KLON|-i-deen"},
+ {g:"isosorbide mononitrate",b:"Imdur",cls:"Nitrate",use:"Angina prevention",pr:"eye-soe-|SOR|-bide"},
+ {g:"nitroglycerin",b:"Nitrostat",cls:"Nitrate",use:"Chest pain (angina)",pr:"nye-troe-|GLIS|-er-in"},
+ {g:"alendronate",b:"Fosamax",cls:"Bisphosphonate",use:"Osteoporosis",pr:"a-|LEN|-droe-nate"},
+ {g:"sumatriptan",b:"Imitrex",cls:"Triptan",use:"Migraine",pr:"soo-ma-|TRIP|-tan"},
+ {g:"potassium chloride",b:"Klor-Con, K-Dur",cls:"Electrolyte",use:"Low potassium",pr:"poe-|TAS|-ee-um KLOR-ide"},
+ {g:"cholecalciferol",b:"Vitamin D3",cls:"Vitamin",use:"Vitamin D deficiency, bones",pr:"koe-le-kal-|SIF|-er-ol"},
+ {g:"ferrous sulfate",b:"Feosol",cls:"Iron supplement",use:"Iron-deficiency anemia",pr:"|FER|-us SUL-fate"},
+ {g:"folic acid",b:"Folacin",cls:"Vitamin (B9)",use:"Anemia, pregnancy",pr:"|FOE|-lik AS-id"},
+ {g:"loperamide",b:"Imodium",cls:"Antidiarrheal",use:"Diarrhea",pr:"loe-|PER|-a-mide"},
+ {g:"polyethylene glycol",b:"MiraLAX",cls:"Osmotic laxative",use:"Constipation",pr:"pol-ee-|ETH|-i-leen GLYE-kol"},
+ {g:"docusate",b:"Colace",cls:"Stool softener",use:"Constipation",pr:"|DOK|-yoo-sate"},
+ {g:"varenicline",b:"Chantix",cls:"Smoking cessation aid",use:"Quit smoking",pr:"var-e-|NIK|-leen"},
+ {g:"estradiol",b:"Estrace",cls:"Estrogen",use:"Menopause, hormone therapy",pr:"es-tra-|DYE|-ol"},
+];
+
+/* ---------- shared state ---------- */
+const $ = s=>document.querySelector(s);
+let tab = 'flash';
+let clsFilter = 'All';
+let pool = DATA.map((_,i)=>i);
+let order = pool.slice();
+let idx = 0, brandFirst = false;
+const known = new Set(), review = new Set();
+
+/* ---------- voice ---------- */
+const TTS = ('speechSynthesis' in window);
+function pickVoice(){ const vs=speechSynthesis.getVoices(); return vs.find(v=>/en[-_]US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null; }
+function speak(text, btn){
+  if(!TTS) return;
+  speechSynthesis.cancel();
+  document.querySelectorAll('.spk.speaking').forEach(b=>b.classList.remove('speaking'));
+  const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.82;
+  const v=pickVoice(); if(v) u.voice=v;
+  if(btn){ btn.classList.add('speaking'); u.onend=u.onerror=()=>btn.classList.remove('speaking'); }
+  speechSynthesis.speak(u);
+}
+function pronHTML(pr){ return pr.replace(/\|([^|]+)\|/g,'<span class="st">$1</span>'); }
+
+/* ---------- class dropdown ---------- */
+function buildClassSelect(){
+  const classes = ['All', ...[...new Set(DATA.map(d=>d.cls))]];
+  $('#clsSel').innerHTML = classes.map(c=>`<option value="${c}">${c==='All'?'All classes':c}</option>`).join('');
+}
+function rebuildPool(){
+  pool = DATA.map((_,i)=>i).filter(i => clsFilter==='All' ? true : DATA[i].cls===clsFilter);
+  order = pool.slice();
+  idx = 0;
+  $('#poolCount').textContent = `${pool.length} drug${pool.length===1?'':'s'}`;
+}
+
+/* ---------- flashcards ---------- */
+function showCard(){
+  if(order.length===0) return;
+  const d = DATA[order[idx]];
+  if(TTS){ speechSynthesis.cancel(); document.querySelectorAll('.spk.speaking').forEach(b=>b.classList.remove('speaking')); }
+  $('#card').classList.remove('flipped');
+  const genericSide = ()=>{ // returns {name, role, pron}
+    return {name:d.g, role:'Generic', pron:pronHTML(d.pr)};
+  };
+  const brandSide = ()=>({name:d.b, role:'Brand', pron:''});
+  const front = brandFirst ? brandSide() : genericSide();
+  const back  = brandFirst ? genericSide() : brandSide();
+  $('#roleF').textContent = front.role; $('#drugF').textContent = front.name;
+  $('#pronF').innerHTML = front.pron; $('#pronF').style.display = front.pron?'block':'none';
+  $('#spkF').style.display = TTS?'inline-flex':'none';
+  $('#clsF').textContent = d.cls;
+  $('#roleB').textContent = back.role; $('#drugB').textContent = back.name;
+  $('#pronB').innerHTML = back.pron; $('#pronB').style.display = back.pron?'block':'none';
+  $('#useB').textContent = d.use;
+  $('#spkB').style.display = TTS?'inline-flex':'none';
+  $('#clsB').textContent = d.cls;
+  $('#counter').textContent = `${idx+1} / ${order.length}`;
+  const gi = order[idx];
+  $('#mKnow').classList.toggle('active-know', known.has(gi));
+  $('#mReview').classList.toggle('active-review', review.has(gi));
+  $('#progress').textContent = `Known ${known.size} · Review ${review.size}`;
+}
+function curDrug(){ return DATA[order[idx]]; }
+
+$('#card').addEventListener('click', ()=> $('#card').classList.toggle('flipped'));
+$('#prev').onclick=()=>{ idx=(idx-1+order.length)%order.length; showCard(); };
+$('#next').onclick=()=>{ idx=(idx+1)%order.length; showCard(); };
+$('#shuffle').onclick=()=>{ for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];} idx=0; showCard(); };
+$('#dir').onclick=()=>{ brandFirst=!brandFirst; $('#dir').textContent = brandFirst?'Show: Brand ▸ Generic':'Show: Generic ▸ Brand'; showCard(); };
+$('#print').onclick=()=>window.print();
+$('#spkF').onclick=e=>{ e.stopPropagation(); const d=curDrug(); speak(brandFirst?d.b:d.g, e.currentTarget); };
+$('#spkB').onclick=e=>{ e.stopPropagation(); const d=curDrug(); speak(brandFirst?d.g:d.b, e.currentTarget); };
+$('#mKnow').onclick=e=>{ e.stopPropagation(); const gi=order[idx]; known.has(gi)?known.delete(gi):(known.add(gi),review.delete(gi)); showCard(); };
+$('#mReview').onclick=e=>{ e.stopPropagation(); const gi=order[idx]; review.has(gi)?review.delete(gi):(review.add(gi),known.delete(gi)); showCard(); };
+document.addEventListener('keydown', e=>{
+  if(tab!=='flash') return;
+  if(e.key==='ArrowRight') $('#next').click();
+  else if(e.key==='ArrowLeft') $('#prev').click();
+  else if(e.key===' '){ e.preventDefault(); $('#card').classList.toggle('flipped'); }
+  else if(e.key.toLowerCase()==='s') $('#shuffle').click();
+});
+
+/* ---------- match game ---------- */
+let mStreak=0, mBest=0, mSel=null, mRound=[];
+function newRound(){
+  const size = Math.min(parseInt($('#sizeSel').value,10), pool.length);
+  const picks = pool.slice(); for(let i=picks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[picks[i],picks[j]]=[picks[j],picks[i]];}
+  mRound = picks.slice(0,size);
+  mSel=null;
+  const gens = mRound.map(i=>({i, side:'g'}));
+  const brs  = mRound.map(i=>({i, side:'b'}));
+  shuffle(gens); shuffle(brs);
+  $('#colG').innerHTML = gens.map(o=>optHTML(o,'g')).join('');
+  $('#colB').innerHTML = brs.map(o=>optHTML(o,'b')).join('');
+  document.querySelectorAll('#colG .opt, #colB .opt').forEach(el=> el.onclick=()=>pick(el));
+  $('#mMatched').textContent = '0';
+  $('#matchMsg').textContent = 'Tap a generic, then its matching brand.';
+  $('#matchMsg').className = 'msg';
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
+function optHTML(o,side){
+  const d=DATA[o.i];
+  const main = side==='g' ? d.g : d.b;
+  const sub  = side==='g' ? `<small>${d.pr.replace(/\|/g,'')}</small>` : `<small>${d.cls}</small>`;
+  return `<button class="opt" data-i="${o.i}" data-side="${side}" type="button">${main}${sub}</button>`;
+}
+function pick(el){
+  if(el.classList.contains('matched')) return;
+  const side=el.dataset.side, i=el.dataset.i;
+  if(!mSel){
+    document.querySelectorAll('.opt.sel').forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel'); mSel={el,side,i};
+    return;
+  }
+  if(mSel.el===el){ el.classList.remove('sel'); mSel=null; return; }
+  if(mSel.side===side){ // same column, switch selection
+    document.querySelectorAll('.opt.sel').forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel'); mSel={el,side,i}; return;
+  }
+  // different columns → check match by index
+  if(mSel.i===i){
+    mSel.el.classList.remove('sel'); mSel.el.classList.add('matched'); el.classList.add('matched');
+    mSel=null; mStreak++; if(mStreak>mBest) mBest=mStreak;
+    $('#mStreak').textContent=mStreak; $('#mBest').textContent=mBest;
+    const done=document.querySelectorAll('.opt.matched').length/2;
+    $('#mMatched').textContent=done;
+    if(done===mRound.length){ $('#matchMsg').textContent='Round complete! 🎉 Tap New round to go again.'; $('#matchMsg').className='msg done'; }
+    else { $('#matchMsg').textContent='Match! Keep going.'; $('#matchMsg').className='msg good'; }
+  } else {
+    const wrongA=mSel.el, wrongB=el;
+    wrongB.classList.add('wrong'); wrongA.classList.add('wrong','sel');
+    const d=DATA[mSel.i];
+    $('#matchMsg').textContent = `Not a match — ${d.g} is ${d.b}.`;
+    $('#matchMsg').className='msg';
+    mStreak=0; $('#mStreak').textContent='0';
+    setTimeout(()=>{ wrongA.classList.remove('wrong','sel'); wrongB.classList.remove('wrong'); }, 500);
+    mSel=null;
+  }
+}
+$('#newRound').onclick=newRound;
+$('#sizeSel').onchange=newRound;
+
+/* ---------- tabs & filter ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected','false'));
+    b.setAttribute('aria-selected','true'); tab=b.dataset.tab;
+    $('#flashPanel').classList.toggle('on', tab==='flash');
+    $('#matchPanel').classList.toggle('on', tab==='match');
+    if(tab==='match') newRound();
+  };
+});
+$('#clsSel').onchange=()=>{ clsFilter=$('#clsSel').value; rebuildPool(); showCard(); if(tab==='match') newRound(); };
+
+/* ---------- print sheet ---------- */
+function buildSheet(){
+  const byClass = {};
+  DATA.forEach(d=>{ (byClass[d.cls]=byClass[d.cls]||[]).push(d); });
+  let html='';
+  Object.keys(byClass).forEach(c=>{
+    html += `<h2>${c}</h2>`;
+    byClass[c].forEach(d=>{
+      html += `<div class="prow"><span><span class="g">${d.g}</span> <span class="gg">${d.pr.replace(/\|/g,'')}</span></span>`+
+              `<span class="b">${d.b}</span><span class="u">${d.use}</span></div>`;
+    });
+  });
+  $('#sheet').innerHTML = html;
+}
+
+/* init */
+buildClassSelect(); rebuildPool(); buildSheet(); showCard();
+</script>
+</body>
+</html>
